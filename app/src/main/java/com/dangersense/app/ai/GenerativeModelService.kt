@@ -91,7 +91,7 @@ class GenerativeModelService {
 
     companion object {
         private const val ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models"
-        private const val MODEL = "gemini-1.5-flash"
+        private const val MODEL = "gemini-3.5-flash"
         private val JSON = "application/json".toMediaType()
     }
 }
