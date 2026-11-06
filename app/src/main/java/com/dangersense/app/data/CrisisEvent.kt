@@ -11,5 +11,6 @@ data class CrisisEvent(
     val hourOfDay: Int,
     val motionPeak: Float,
     val decibels: Float,
-    val foregroundPackage: String
+    val foregroundPackage: String,
+    val crisisType: String? = null
 )

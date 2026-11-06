@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -56,7 +59,7 @@ import java.util.Locale
 @Composable
 fun MainScreen(vm: MainViewModel) {
     val motion by vm.motion.collectAsStateWithLifecycle()
-    val db by vm.db.collectAsStateWithLifecycle()
+    val db by vm.dbLevel.collectAsStateWithLifecycle()
     val dbPeak by vm.dbPeak.collectAsStateWithLifecycle()
     val dbAmbient by vm.dbAmbient.collectAsStateWithLifecycle()
     val sampleRate by vm.sampleRate.collectAsStateWithLifecycle()
@@ -66,10 +69,12 @@ fun MainScreen(vm: MainViewModel) {
     val enabled by vm.controller.enabled.collectAsStateWithLifecycle()
     val alert by vm.alert.collectAsStateWithLifecycle()
     val messages by vm.messages.collectAsStateWithLifecycle()
+    val dimmed by vm.reducedStimuli.collectAsStateWithLifecycle()
 
     var draft by remember { mutableStateOf("") }
 
-    Scaffold(
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
         containerColor = OneUI.Graphite,
         bottomBar = {
             MessageBar(
@@ -128,6 +133,7 @@ fun MainScreen(vm: MainViewModel) {
                         detected = prediction?.detected == true
                     )
                 }
+                item { DiagnosticSection(vm) }
                 if (events.isNotEmpty()) {
                     item {
                         Text(
@@ -138,6 +144,35 @@ fun MainScreen(vm: MainViewModel) {
                         )
                     }
                     items(events) { e -> EventRow(e) }
+                }
+            }
+        }
+        }
+
+        if (dimmed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.96f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Estímulos reduzidos",
+                        color = OneUI.TextSecondary,
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = { vm.restoreVision() },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = OneUI.GraphiteElevated,
+                            contentColor = OneUI.Aurora
+                        )
+                    ) {
+                        Text("Restaurar visão")
+                    }
                 }
             }
         }
@@ -154,7 +189,7 @@ private fun Header(enabled: Boolean, onToggle: () -> Unit) {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "SenseCalm",
+                "Danger Sense",
                 fontSize = 34.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = OneUI.TextPrimary
@@ -347,9 +382,10 @@ private fun EventRow(e: CrisisEvent) {
                 Text(fmt.format(Date(e.timestamp)), style = MaterialTheme.typography.titleMedium,
                     color = OneUI.TextPrimary)
                 Text(
-                    e.foregroundPackage.ifBlank { "App desconhecido" },
+                    e.crisisType?.let { "$it · " }.orEmpty() +
+                            e.foregroundPackage.ifBlank { "App desconhecido" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = OneUI.TextSecondary,
+                    color = if (e.crisisType != null) OneUI.Alert else OneUI.TextSecondary,
                     maxLines = 1
                 )
             }

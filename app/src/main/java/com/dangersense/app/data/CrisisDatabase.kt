@@ -5,9 +5,14 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CrisisEvent::class], version = 1, exportSchema = false)
+@Database(
+    entities = [CrisisEvent::class, NeuroHabitsLog::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class CrisisDatabase : RoomDatabase() {
     abstract fun crisisDao(): CrisisDao
+    abstract fun neuroHabitsDao(): NeuroHabitsDao
 
     companion object {
         @Volatile private var instance: CrisisDatabase? = null
@@ -18,7 +23,7 @@ abstract class CrisisDatabase : RoomDatabase() {
                     context.applicationContext,
                     CrisisDatabase::class.java,
                     "sense_calm.db"
-                ).build().also { instance = it }
+                ).fallbackToDestructiveMigration().build().also { instance = it }
             }
     }
 }

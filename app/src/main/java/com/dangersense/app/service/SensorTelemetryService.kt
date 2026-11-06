@@ -25,6 +25,7 @@ import com.dangersense.app.data.CrisisEvent
 import com.dangersense.app.domain.AppUsageTracker
 import com.dangersense.app.domain.LocalCrisisEngine
 import com.dangersense.app.domain.Prediction
+import com.dangersense.app.domain.SoundMapManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,6 +54,10 @@ class SensorTelemetryService : Service(), SensorEventListener {
     private var lastTrigger = 0L
     @Volatile private var accelDev = 0f
     @Volatile private var gyroMag = 0f
+    @Volatile private var micPaused = false
+    private var voice: SensoryVoiceTriggerReceiver? = null
+    private var voiceJob: Job? = null
+    private var currentCrisisId = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -72,9 +77,75 @@ class SensorTelemetryService : Service(), SensorEventListener {
             ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
             ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
+            ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+
+        voice = SensoryVoiceTriggerReceiver(
+            context = this,
+            onPhrase = { handleVoicePhrase(it) },
+            onSessionEnd = { resumeMic() }
+        )
 
         startMic()
         startLoop()
+        startVoiceCycle()
+    }
+
+    private fun pauseMic() { micPaused = true }
+
+    private fun resumeMic() {
+        voice?.endSession()
+        micPaused = false
+    }
+
+    private fun startVoiceCycle() {
+        voiceJob = scope.launch {
+            while (isActive) {
+                delay(9_000)
+                if (voice?.busy == true) continue
+                pauseMic()
+                delay(250)
+                voice?.beginTriggerListen()
+            }
+        }
+    }
+
+    private fun handleVoicePhrase(text: String) {
+        val v = voice ?: return
+        when (v.mode) {
+            SensoryVoiceTriggerReceiver.Mode.TRIGGER -> {
+                if (v.isTrigger(text)) beginCrisisProtocol()
+                else resumeMic()
+            }
+            SensoryVoiceTriggerReceiver.Mode.TRIAGE -> {
+                val type = v.classify(text)
+                val id = currentCrisisId
+                scope.launch {
+                    if (id > 0) CrisisDatabase.get(applicationContext).crisisDao().assignType(id, type)
+                }
+                if (type == "Shutdown") _reducedStimuli.value = true
+                v.deliverAdvice(type) { resumeMic() }
+            }
+            else -> resumeMic()
+        }
+    }
+
+    private fun beginCrisisProtocol() {
+        val now = System.currentTimeMillis()
+        val cal = Calendar.getInstance().apply { timeInMillis = now }
+        val e = CrisisEvent(
+            timestamp = now,
+            dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
+            hourOfDay = cal.get(Calendar.HOUR_OF_DAY),
+            motionPeak = max(accelDev, gyroMag),
+            decibels = max(_dbSlow.value, _db.value),
+            foregroundPackage = tracker.foreground.value
+        )
+        scope.launch {
+            currentCrisisId = engine.record(e)
+            latest.value = e.copy(id = currentCrisisId)
+            voice?.speakQuestionThenListen()
+        }
     }
 
     private fun startForegroundCompat() {
@@ -153,10 +224,10 @@ class SensorTelemetryService : Service(), SensorEventListener {
         val r = rec ?: return
         audioRecord = r
         _sampleRate.value = rateUsed
-        r.startRecording()
 
         audioJob = scope.launch {
             val data = ShortArray(bufSize)
+            var recording = false
             var fastSum = 0.0
             var fastCount = 0L
             var fastStart = SystemClock.elapsedRealtime()
@@ -167,6 +238,18 @@ class SensorTelemetryService : Service(), SensorEventListener {
             var peakAt = 0L
 
             while (isActive) {
+                if (micPaused) {
+                    if (recording) {
+                        try { r.stop() } catch (_: Exception) {}
+                        recording = false
+                    }
+                    delay(80)
+                    continue
+                }
+                if (!recording) {
+                    r.startRecording()
+                    recording = true
+                }
                 val read = r.read(data, 0, data.size)
                 if (read <= 0) continue
 
@@ -188,6 +271,7 @@ class SensorTelemetryService : Service(), SensorEventListener {
                     val rms = sqrt(fastSum / fastCount)
                     val db = toDbSpl(rms)
                     _db.value = db
+                    SoundMapManager.sample(db, System.currentTimeMillis())
                     if (db >= peakDb || nowMs - peakAt > PEAK_HOLD_MS) {
                         peakDb = if (db >= peakDb) db else peakDb * 0.7f
                         peakAt = nowMs
@@ -258,6 +342,10 @@ class SensorTelemetryService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         val e = event ?: return
+        if (e.sensor.type == Sensor.TYPE_AMBIENT_TEMPERATURE) {
+            _temperature.value = e.values.getOrElse(0) { Float.NaN }
+            return
+        }
         val ax = e.values.getOrElse(0) { 0f }
         val ay = e.values.getOrElse(1) { 0f }
         val az = e.values.getOrElse(2) { 0f }
@@ -275,7 +363,9 @@ class SensorTelemetryService : Service(), SensorEventListener {
         sensorManager.unregisterListener(this)
         tracker.stop()
         loopJob?.cancel()
+        voiceJob?.cancel()
         audioJob?.cancel()
+        voice?.shutdown()
         audioRecord?.run {
             try { stop() } catch (_: Exception) {}
             release()
@@ -304,6 +394,8 @@ class SensorTelemetryService : Service(), SensorEventListener {
         private val _dbPeak = MutableStateFlow(0f)
         private val _sampleRate = MutableStateFlow(0)
         private val _clipped = MutableStateFlow(0L)
+        private val _temperature = MutableStateFlow(Float.NaN)
+        private val _reducedStimuli = MutableStateFlow(false)
         private val _prediction = MutableStateFlow<Prediction?>(null)
         val latest = MutableStateFlow<CrisisEvent?>(null)
 
@@ -313,6 +405,8 @@ class SensorTelemetryService : Service(), SensorEventListener {
         val dbPeak: StateFlow<Float> = _dbPeak
         val sampleRate: StateFlow<Int> = _sampleRate
         val clipped: StateFlow<Long> = _clipped
+        val temperature: StateFlow<Float> = _temperature
+        val reducedStimuli: StateFlow<Boolean> = _reducedStimuli
         val prediction: StateFlow<Prediction?> = _prediction
 
         fun start(context: Context) {
@@ -326,6 +420,10 @@ class SensorTelemetryService : Service(), SensorEventListener {
 
         fun stop(context: Context) {
             context.stopService(Intent(context, SensorTelemetryService::class.java))
+        }
+
+        fun restoreVision() {
+            _reducedStimuli.value = false
         }
     }
 }
