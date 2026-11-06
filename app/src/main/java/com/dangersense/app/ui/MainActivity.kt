@@ -45,7 +45,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNeededPermissions() {
-        val wanted = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        val wanted = mutableListOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.BODY_SENSORS
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             wanted += Manifest.permission.POST_NOTIFICATIONS
         }

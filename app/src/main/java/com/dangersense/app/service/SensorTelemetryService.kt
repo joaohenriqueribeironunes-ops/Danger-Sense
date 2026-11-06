@@ -19,7 +19,10 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
+import android.app.usage.UsageStatsManager
 import androidx.core.app.NotificationCompat
+import com.dangersense.app.ai.LocalPrediction
+import com.dangersense.app.ai.LocalPredictionEngine
 import com.dangersense.app.data.CrisisDatabase
 import com.dangersense.app.data.CrisisEvent
 import com.dangersense.app.domain.AppUsageTracker
@@ -58,6 +61,8 @@ class SensorTelemetryService : Service(), SensorEventListener {
     private var voice: SensoryVoiceTriggerReceiver? = null
     private var voiceJob: Job? = null
     private var currentCrisisId = 0L
+    private lateinit var localEngine: LocalPredictionEngine
+    private var lastProactiveNotify = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -79,6 +84,14 @@ class SensorTelemetryService : Service(), SensorEventListener {
             ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
             ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        @Suppress("MissingPermission")
+        runCatching {
+            sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
+                ?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL) }
+        }
+
+        localEngine = LocalPredictionEngine(this).also { it.init() }
+        refreshScreenTime()
 
         voice = SensoryVoiceTriggerReceiver(
             context = this,
@@ -298,10 +311,27 @@ class SensorTelemetryService : Service(), SensorEventListener {
 
     private fun startLoop() {
         loopJob = scope.launch {
+            var tick = 0
             while (isActive) {
                 delay(400)
                 evaluate()
+                if (++tick % 150 == 0) refreshScreenTime()
             }
+        }
+    }
+
+    private fun refreshScreenTime() {
+        runCatching {
+            val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val dayStart = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+            }.timeInMillis
+            val total = usm
+                .queryUsageStats(UsageStatsManager.INTERVAL_DAILY, dayStart, System.currentTimeMillis())
+                ?.sumOf { it.totalTimeInForeground } ?: 0L
+            _screenMinutes.value = (total / 60_000L).toInt()
         }
     }
 
@@ -324,6 +354,20 @@ class SensorTelemetryService : Service(), SensorEventListener {
         scope.launch {
             val p = engine.predict(motion, dbRecorded, now)
             _prediction.value = p
+
+            val dao = CrisisDatabase.get(applicationContext).ingestaoDao()
+            val last4h = dao.recentSince(now - 4 * 3_600_000L)
+            val local = localEngine.prever(dbRecorded, _bpm.value, _screenMinutes.value, last4h)
+            _localPrediction.value = local
+
+            if (p.risk >= 0.7f && now - lastProactiveNotify > 5 * 60_000L) {
+                lastProactiveNotify = now
+                HyperActionReceiver.notifyProactive(
+                    applicationContext, p.risk,
+                    "${local.tipoCriseProvavel} · ${local.acaoPreventiva}"
+                )
+            }
+
             if (p.detected) {
                 val cal = Calendar.getInstance().apply { timeInMillis = now }
                 val e = CrisisEvent(
@@ -346,6 +390,10 @@ class SensorTelemetryService : Service(), SensorEventListener {
             _temperature.value = e.values.getOrElse(0) { Float.NaN }
             return
         }
+        if (e.sensor.type == Sensor.TYPE_HEART_RATE) {
+            _bpm.value = e.values.getOrElse(0) { 0f }.toInt()
+            return
+        }
         val ax = e.values.getOrElse(0) { 0f }
         val ay = e.values.getOrElse(1) { 0f }
         val az = e.values.getOrElse(2) { 0f }
@@ -366,6 +414,7 @@ class SensorTelemetryService : Service(), SensorEventListener {
         voiceJob?.cancel()
         audioJob?.cancel()
         voice?.shutdown()
+        localEngine.close()
         audioRecord?.run {
             try { stop() } catch (_: Exception) {}
             release()
@@ -396,6 +445,9 @@ class SensorTelemetryService : Service(), SensorEventListener {
         private val _clipped = MutableStateFlow(0L)
         private val _temperature = MutableStateFlow(Float.NaN)
         private val _reducedStimuli = MutableStateFlow(false)
+        private val _bpm = MutableStateFlow(0)
+        private val _screenMinutes = MutableStateFlow(0)
+        private val _localPrediction = MutableStateFlow<LocalPrediction?>(null)
         private val _prediction = MutableStateFlow<Prediction?>(null)
         val latest = MutableStateFlow<CrisisEvent?>(null)
 
@@ -407,6 +459,9 @@ class SensorTelemetryService : Service(), SensorEventListener {
         val clipped: StateFlow<Long> = _clipped
         val temperature: StateFlow<Float> = _temperature
         val reducedStimuli: StateFlow<Boolean> = _reducedStimuli
+        val bpm: StateFlow<Int> = _bpm
+        val screenMinutes: StateFlow<Int> = _screenMinutes
+        val localPrediction: StateFlow<LocalPrediction?> = _localPrediction
         val prediction: StateFlow<Prediction?> = _prediction
 
         fun start(context: Context) {
@@ -424,6 +479,14 @@ class SensorTelemetryService : Service(), SensorEventListener {
 
         fun restoreVision() {
             _reducedStimuli.value = false
+        }
+
+        fun requestPause() {
+            _reducedStimuli.value = true
+        }
+
+        fun dismissLatest() {
+            latest.value = null
         }
     }
 }

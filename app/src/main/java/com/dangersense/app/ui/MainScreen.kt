@@ -48,9 +48,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dangersense.app.data.CrisisEvent
 import com.dangersense.app.domain.MainViewModel
+import com.dangersense.app.ui.hyper.HyperCapsule
+import com.dangersense.app.ui.hyper.HyperMindHub
+import com.dangersense.app.ui.hyper.IngestionPanel
 import com.dangersense.app.ui.theme.OneUI
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -70,6 +74,9 @@ fun MainScreen(vm: MainViewModel) {
     val alert by vm.alert.collectAsStateWithLifecycle()
     val messages by vm.messages.collectAsStateWithLifecycle()
     val dimmed by vm.reducedStimuli.collectAsStateWithLifecycle()
+    val bpm by vm.bpm.collectAsStateWithLifecycle()
+    val screenMinutes by vm.screenMinutes.collectAsStateWithLifecycle()
+    val local by vm.localPrediction.collectAsStateWithLifecycle()
 
     var draft by remember { mutableStateOf("") }
 
@@ -113,6 +120,16 @@ fun MainScreen(vm: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
+                    HyperMindHub(
+                        risk = prediction?.risk ?: local?.risco ?: 0f,
+                        db = db,
+                        bpm = bpm,
+                        screenMinutes = screenMinutes,
+                        localSource = local?.origem ?: "aguardando anomalia",
+                        localAction = local?.acaoPreventiva ?: ""
+                    )
+                }
+                item {
                     TelemetryCard(
                         motion = motion,
                         db = db,
@@ -134,6 +151,7 @@ fun MainScreen(vm: MainViewModel) {
                     )
                 }
                 item { DiagnosticSection(vm) }
+                item { IngestionPanel(vm) }
                 if (events.isNotEmpty()) {
                     item {
                         Text(
@@ -147,6 +165,21 @@ fun MainScreen(vm: MainViewModel) {
                 }
             }
         }
+        }
+
+        if (alert && !dimmed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 8.dp)
+                    .zIndex(10f)
+            ) {
+                HyperCapsule(
+                    onPausa = { vm.requestPause() },
+                    onFalsoAlarme = { vm.dismissAlert() }
+                )
+            }
         }
 
         if (dimmed) {

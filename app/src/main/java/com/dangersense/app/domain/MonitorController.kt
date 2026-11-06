@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dangersense.app.ai.GenerativeModelService
 import com.dangersense.app.data.CrisisDatabase
 import com.dangersense.app.data.NeuroHabitsLog
 import com.dangersense.app.service.DailyDiagnosticReceiver
@@ -74,6 +75,36 @@ class MainViewModel(context: Context) : ViewModel() {
     val prediction = SensorTelemetryService.prediction
     val soundPeak = SoundMapManager.peakDb
     val soundPeakAt = SoundMapManager.peakAt
+    val bpm = SensorTelemetryService.bpm
+    val screenMinutes = SensorTelemetryService.screenMinutes
+    val localPrediction = SensorTelemetryService.localPrediction
+
+    private val ingestaoDao = db.ingestaoDao()
+    val ingestoes = ingestaoDao.recent()
+
+    private val gemini = GenerativeModelService()
+    private val _analiseStatus = MutableStateFlow("")
+    val analiseStatus: StateFlow<String> = _analiseStatus.asStateFlow()
+
+    fun analisarIngestao(nome: String, categoria: String) {
+        viewModelScope.launch {
+            _analiseStatus.value = "analisando"
+            gemini.analisar(nome, categoria)
+                .onSuccess {
+                    ingestaoDao.insert(it)
+                    _analiseStatus.value = "ok"
+                }
+                .onFailure { e ->
+                    _analiseStatus.value = "Falha: ${e.message}"
+                }
+        }
+    }
+
+    fun requestPause() = SensorTelemetryService.requestPause()
+    fun dismissAlert() {
+        _alert.value = false
+        SensorTelemetryService.dismissLatest()
+    }
 
     private val _messages = MutableStateFlow<List<String>>(emptyList())
     val messages: StateFlow<List<String>> = _messages.asStateFlow()

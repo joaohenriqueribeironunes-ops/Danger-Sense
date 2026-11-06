@@ -13,8 +13,13 @@ android {
         applicationId = "com.dangersense.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
+        buildConfigField(
+            "String",
+            "GEMINI_API_KEY",
+            "\"${project.findProperty("GEMINI_API_KEY") ?: ""}\""
+        )
     }
 
     signingConfigs {
@@ -45,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -61,4 +67,14 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.datastore.preferences)
+
+    // IA híbrida: Gemini (nuvem, via REST) + MediaPipe Gemma 2B (local)
+    implementation(libs.okhttp)
+    implementation(libs.mediapipe.tasks.genai)
+
+    // CameraX (captura de contexto visual)
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
 }
