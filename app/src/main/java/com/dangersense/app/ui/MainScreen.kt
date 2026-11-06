@@ -57,6 +57,9 @@ import java.util.Locale
 fun MainScreen(vm: MainViewModel) {
     val motion by vm.motion.collectAsStateWithLifecycle()
     val db by vm.db.collectAsStateWithLifecycle()
+    val dbPeak by vm.dbPeak.collectAsStateWithLifecycle()
+    val dbAmbient by vm.dbAmbient.collectAsStateWithLifecycle()
+    val sampleRate by vm.sampleRate.collectAsStateWithLifecycle()
     val prediction by vm.prediction.collectAsStateWithLifecycle()
     val events by vm.events.collectAsStateWithLifecycle(initialValue = emptyList())
     val foreground by vm.tracker.foreground.collectAsStateWithLifecycle()
@@ -105,7 +108,14 @@ fun MainScreen(vm: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    TelemetryCard(motion = motion, db = db, foreground = foreground)
+                    TelemetryCard(
+                        motion = motion,
+                        db = db,
+                        dbPeak = dbPeak,
+                        dbAmbient = dbAmbient,
+                        sampleRate = sampleRate,
+                        foreground = foreground
+                    )
                 }
                 if (messages.isNotEmpty()) {
                     item { MessagesCard(messages) }
@@ -197,7 +207,14 @@ private fun CrisisBanner() {
 }
 
 @Composable
-private fun TelemetryCard(motion: Float, db: Float, foreground: String) {
+private fun TelemetryCard(
+    motion: Float,
+    db: Float,
+    dbPeak: Float,
+    dbAmbient: Float,
+    sampleRate: Int,
+    foreground: String
+) {
     Card(
         shape = RoundedCornerShape(OneUI.RadiusXl.dp),
         colors = CardDefaults.cardColors(containerColor = OneUI.GraphiteSurface)
@@ -210,7 +227,18 @@ private fun TelemetryCard(motion: Float, db: Float, foreground: String) {
                 Metric("Movimento", "%.2f g".format(motion), Modifier.weight(1f))
                 Metric("Ruído", "%.0f dB".format(db), Modifier.weight(1f))
             }
+            Spacer(Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Metric("Pico (1,5 s)", "%.0f dB".format(dbPeak), Modifier.weight(1f))
+                Metric("Ambiente", "%.0f dB".format(dbAmbient), Modifier.weight(1f))
+            }
             Spacer(Modifier.height(14.dp))
+            Text(
+                "Microfone: ${sampleRate} Hz · sem processamento" ,
+                style = MaterialTheme.typography.bodyMedium,
+                color = OneUI.Aurora
+            )
+            Spacer(Modifier.height(4.dp))
             Text(
                 "App em primeiro plano: ${foreground.ifBlank { "—" }}",
                 style = MaterialTheme.typography.bodyMedium,

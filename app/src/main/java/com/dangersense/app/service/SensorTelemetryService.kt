@@ -13,10 +13,12 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.dangersense.app.data.CrisisDatabase
 import com.dangersense.app.data.CrisisEvent
@@ -54,6 +56,11 @@ class SensorTelemetryService : Service(), SensorEventListener {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (audioJob == null || audioJob?.isActive != true) startMic()
+        return START_STICKY
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForegroundCompat()
@@ -83,8 +90,8 @@ class SensorTelemetryService : Service(), SensorEventListener {
         )
         val n: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setContentTitle("SenseCalm ativo")
-            .setContentText("Monitorando sensores em tempo real")
+            .setContentTitle("Danger Sense ativo")
+            .setContentText("Telemetria de sensores e microfone ativos")
             .setContentIntent(pi)
             .setOngoing(true)
             .build()
@@ -100,46 +107,110 @@ class SensorTelemetryService : Service(), SensorEventListener {
     }
 
     private fun startMic() {
-        val minBuf = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
-        )
-        if (minBuf == AudioRecord.ERROR || minBuf == AudioRecord.ERROR_BAD_VALUE) return
         if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
             != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) return
 
-        val buf = minBuf * 2
-        audioRecord = try {
-            AudioRecord(
-                MediaRecorder.AudioSource.DEFAULT, SAMPLE_RATE,
-                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, buf
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val unprocessed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            am.getProperty(AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED)
+                ?.toBoolean() == true
+        } else false
+        val source = when {
+            unprocessed -> MediaRecorder.AudioSource.UNPROCESSED
+            else -> MediaRecorder.AudioSource.VOICE_RECOGNITION
+        }
+
+        val rates = listOfNotNull(
+            am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE)?.toIntOrNull(),
+            48000, 44100, 32000, 16000
+        ).distinct()
+
+        var rec: AudioRecord? = null
+        var bufSize = 0
+        var rateUsed = 16000
+        for (rate in rates) {
+            val minBuf = AudioRecord.getMinBufferSize(
+                rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
             )
-        } catch (e: SecurityException) {
-            return
+            if (minBuf <= 0) continue
+            val size = minBuf * 2
+            val candidate = try {
+                AudioRecord(
+                    source, rate, AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, size
+                )
+            } catch (e: SecurityException) {
+                return
+            } catch (e: IllegalArgumentException) {
+                continue
+            }
+            if (candidate.state == AudioRecord.STATE_INITIALIZED) {
+                rec = candidate; bufSize = size; rateUsed = rate; break
+            }
+            candidate.release()
         }
-        val rec = audioRecord ?: return
-        if (rec.state != AudioRecord.STATE_INITIALIZED) {
-            rec.release()
-            audioRecord = null
-            return
-        }
-        rec.startRecording()
+        val r = rec ?: return
+        audioRecord = r
+        _sampleRate.value = rateUsed
+        r.startRecording()
+
         audioJob = scope.launch {
-            val data = ShortArray(buf)
+            val data = ShortArray(bufSize)
+            var fastSum = 0.0
+            var fastCount = 0L
+            var fastStart = SystemClock.elapsedRealtime()
+            var slowSum = 0.0
+            var slowCount = 0L
+            var slowStart = fastStart
+            var peakDb = 0f
+            var peakAt = 0L
+
             while (isActive) {
-                val read = rec.read(data, 0, data.size)
-                if (read > 0) {
-                    var sum = 0.0
-                    for (i in 0 until read) {
-                        val v = data[i] / 32768.0
-                        sum += v * v
+                val read = r.read(data, 0, data.size)
+                if (read <= 0) continue
+
+                var sum = 0.0
+                for (i in 0 until read) {
+                    val s = data[i].toInt()
+                    if (s <= -32768 || s >= 32767) _clipped.value = _clipped.value + 1
+                    val v = s / 32768.0
+                    sum += v * v
+                }
+                fastSum += sum
+                fastCount += read
+                slowSum += sum
+                slowCount += read
+
+                val nowMs = SystemClock.elapsedRealtime()
+
+                if (nowMs - fastStart >= FAST_WINDOW_MS) {
+                    val rms = sqrt(fastSum / fastCount)
+                    val db = toDbSpl(rms)
+                    _db.value = db
+                    if (db >= peakDb || nowMs - peakAt > PEAK_HOLD_MS) {
+                        peakDb = if (db >= peakDb) db else peakDb * 0.7f
+                        peakAt = nowMs
                     }
-                    val rms = sqrt(sum / read)
-                    _db.value = if (rms > 1e-7) (20.0 * log10(rms) + 90.0).toFloat() else 0f
+                    _dbPeak.value = peakDb
+                    fastSum = 0.0
+                    fastCount = 0
+                    fastStart = nowMs
+                }
+
+                if (nowMs - slowStart >= SLOW_WINDOW_MS) {
+                    val rms = sqrt(slowSum / slowCount)
+                    _dbSlow.value = toDbSpl(rms)
+                    slowSum = 0.0
+                    slowCount = 0
+                    slowStart = nowMs
                 }
             }
         }
     }
+
+    private fun toDbSpl(rms: Double): Float =
+        if (rms > 1e-7) (20.0 * log10(rms) + CAL_OFFSET_DB).toFloat() else 0f
 
     private fun startLoop() {
         loopJob = scope.launch {
@@ -154,17 +225,20 @@ class SensorTelemetryService : Service(), SensorEventListener {
         val motion = max(accelDev, gyroMag)
         _motion.value = motion
         val db = _db.value
+        val dbAmbient = _dbSlow.value
         val now = System.currentTimeMillis()
         baseline = baseline * 0.9f + motion * 0.1f
 
         val moveSpike = motion > baseline * 2.4f && motion > 4.5f
-        val noiseSpike = db > 75f
+        val noiseSpike = dbAmbient > 72f || db > 88f
         if (!moveSpike && !noiseSpike) return
         if (now - lastTrigger < 20_000) return
         lastTrigger = now
 
+        val dbRecorded = max(dbAmbient, db)
+
         scope.launch {
-            val p = engine.predict(motion, db, now)
+            val p = engine.predict(motion, dbRecorded, now)
             _prediction.value = p
             if (p.detected) {
                 val cal = Calendar.getInstance().apply { timeInMillis = now }
@@ -173,7 +247,7 @@ class SensorTelemetryService : Service(), SensorEventListener {
                     dayOfWeek = cal.get(Calendar.DAY_OF_WEEK),
                     hourOfDay = cal.get(Calendar.HOUR_OF_DAY),
                     motionPeak = motion,
-                    decibels = db,
+                    decibels = dbRecorded,
                     foregroundPackage = tracker.foreground.value
                 )
                 engine.record(e)
@@ -210,21 +284,35 @@ class SensorTelemetryService : Service(), SensorEventListener {
         scope.cancel()
         _motion.value = 0f
         _db.value = 0f
+        _dbSlow.value = 0f
+        _dbPeak.value = 0f
+        _sampleRate.value = 0
         super.onDestroy()
     }
 
     companion object {
         private const val CHANNEL = "sensor_telemetry"
         private const val NOTIF_ID = 101
-        private const val SAMPLE_RATE = 16000
+        private const val FAST_WINDOW_MS = 125
+        private const val SLOW_WINDOW_MS = 1000
+        private const val PEAK_HOLD_MS = 1500
+        private const val CAL_OFFSET_DB = 90.0
 
         private val _motion = MutableStateFlow(0f)
         private val _db = MutableStateFlow(0f)
+        private val _dbSlow = MutableStateFlow(0f)
+        private val _dbPeak = MutableStateFlow(0f)
+        private val _sampleRate = MutableStateFlow(0)
+        private val _clipped = MutableStateFlow(0L)
         private val _prediction = MutableStateFlow<Prediction?>(null)
         val latest = MutableStateFlow<CrisisEvent?>(null)
 
         val motion: StateFlow<Float> = _motion
         val db: StateFlow<Float> = _db
+        val dbSlow: StateFlow<Float> = _dbSlow
+        val dbPeak: StateFlow<Float> = _dbPeak
+        val sampleRate: StateFlow<Int> = _sampleRate
+        val clipped: StateFlow<Long> = _clipped
         val prediction: StateFlow<Prediction?> = _prediction
 
         fun start(context: Context) {

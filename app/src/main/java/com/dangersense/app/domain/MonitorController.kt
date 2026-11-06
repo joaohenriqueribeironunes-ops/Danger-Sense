@@ -58,6 +58,9 @@ class MainViewModel(context: Context) : ViewModel() {
     val events = dao.recent(30)
     val motion = SensorTelemetryService.motion
     val db = SensorTelemetryService.db
+    val dbPeak = SensorTelemetryService.dbPeak
+    val dbAmbient = SensorTelemetryService.dbSlow
+    val sampleRate = SensorTelemetryService.sampleRate
     val prediction = SensorTelemetryService.prediction
 
     private val _messages = MutableStateFlow<List<String>>(emptyList())
