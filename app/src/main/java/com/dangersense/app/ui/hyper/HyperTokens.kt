@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,19 @@ object HyperOS {
     val SquircleLg: RoundedCornerShape = RoundedCornerShape(28.dp)
     val SquircleMd: RoundedCornerShape = RoundedCornerShape(24.dp)
     val Capsule: RoundedCornerShape = RoundedCornerShape(50)
+}
+
+/**
+ * MiSans. Enquanto `res/font/misans.ttf` não for incluído, usa o sans-serif do
+ * sistema (métricas equivalentes) com os pesos MiSans. Trocar [Familia] por
+ * `FontFamily(Font(R.font.misans))` ativa a fonte original.
+ */
+object MiSans {
+    val Familia: FontFamily = FontFamily.SansSerif
+    val Titulo: TextStyle = TextStyle(fontFamily = Familia, fontWeight = FontWeight.Bold)
+    val Subtitulo: TextStyle = TextStyle(fontFamily = Familia, fontWeight = FontWeight.SemiBold)
+    val Legenda: TextStyle = TextStyle(fontFamily = Familia, fontWeight = FontWeight.Medium)
+    val Corpo: TextStyle = TextStyle(fontFamily = Familia, fontWeight = FontWeight.Normal)
 }
 
 fun Modifier.hyperGlass(shape: androidx.compose.ui.graphics.Shape = HyperOS.SquircleLg): Modifier =

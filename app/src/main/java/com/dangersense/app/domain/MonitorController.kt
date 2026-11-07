@@ -6,9 +6,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dangersense.app.ai.DiagnosticoAdaptativo
 import com.dangersense.app.ai.GenerativeModelService
 import com.dangersense.app.data.CrisisDatabase
+import com.dangersense.app.data.CrisisEvent
 import com.dangersense.app.data.NeuroHabitsLog
+import com.dangersense.app.data.RotinaEntity
 import com.dangersense.app.service.DailyDiagnosticReceiver
 import com.dangersense.app.service.SensorTelemetryService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -82,9 +85,20 @@ class MainViewModel(context: Context) : ViewModel() {
     private val ingestaoDao = db.ingestaoDao()
     val ingestoes = ingestaoDao.recent()
 
+    private val rotinaDao = db.rotinaDao()
+    val rotina = rotinaDao.recente()
+
     private val gemini = GenerativeModelService()
     private val _analiseStatus = MutableStateFlow("")
     val analiseStatus: StateFlow<String> = _analiseStatus.asStateFlow()
+
+    private val _diagnostico = MutableStateFlow<DiagnosticoAdaptativo?>(null)
+    val diagnostico: StateFlow<DiagnosticoAdaptativo?> = _diagnostico.asStateFlow()
+
+    private val _diagStatus = MutableStateFlow("")
+    val diagStatus: StateFlow<String> = _diagStatus.asStateFlow()
+
+    private var ultimaCriseRotinaId: Long? = null
 
     fun analisarIngestao(nome: String, categoria: String) {
         viewModelScope.launch {
@@ -92,6 +106,19 @@ class MainViewModel(context: Context) : ViewModel() {
             gemini.analisar(nome, categoria)
                 .onSuccess {
                     ingestaoDao.insert(it)
+                    rotinaDao.insert(
+                        RotinaEntity(
+                            timestamp = it.timestamp,
+                            categoria = RotinaEntity.ALIMENTACAO,
+                            rotulo = it.nome,
+                            metrica = it.risco_gatilho,
+                            impactoTea = it.impacto_tea,
+                            impactoTdah = it.impacto_tdah,
+                            riscoGatilho = it.risco_gatilho,
+                            detalhe = it.categoria,
+                            validada = true
+                        )
+                    )
                     _analiseStatus.value = "ok"
                 }
                 .onFailure { e ->
@@ -100,10 +127,41 @@ class MainViewModel(context: Context) : ViewModel() {
         }
     }
 
+    /** Busca 14 dias no Room, injeta no prompt do Gemini e abre o overlay. */
+    fun gerarDiagnostico() {
+        viewModelScope.launch {
+            val desde = System.currentTimeMillis() - 14L * 86_400_000L
+            val historico = rotinaDao.desde(desde)
+            if (historico.size < 3) {
+                _diagStatus.value =
+                    "Histórico insuficiente (${historico.size} registros). Responda o diagnóstico diário por alguns dias."
+                return@launch
+            }
+            _diagStatus.value = "analisando"
+            gemini.gerarDiagnosticoAdaptativo(historico)
+                .onSuccess {
+                    _diagnostico.value = it
+                    _diagStatus.value = "ok"
+                }
+                .onFailure { e ->
+                    _diagnostico.value = gemini.diagnosticoLocal(historico)
+                    _diagStatus.value = "offline · ${e.message?.take(60)}"
+                }
+        }
+    }
+
+    fun fecharDiagnostico() {
+        _diagnostico.value = null
+    }
+
     fun requestPause() = SensorTelemetryService.requestPause()
     fun dismissAlert() {
         _alert.value = false
         SensorTelemetryService.dismissLatest()
+        ultimaCriseRotinaId?.let { id ->
+            viewModelScope.launch { rotinaDao.invalidar(id) }
+        }
+        ultimaCriseRotinaId = null
     }
 
     private val _messages = MutableStateFlow<List<String>>(emptyList())
@@ -169,7 +227,73 @@ class MainViewModel(context: Context) : ViewModel() {
                     assignedCrisisType = dao.lastCrisisType()
                 )
             )
+
+            val agora = System.currentTimeMillis()
+            rotinaDao.insert(
+                RotinaEntity(
+                    timestamp = agora,
+                    categoria = RotinaEntity.SONO,
+                    rotulo = "Sono (questionário)",
+                    metrica = sleepHours,
+                    duracaoMinutos = sleepMin,
+                    detalhe = "diagnóstico diário",
+                    validada = true
+                )
+            )
+            rotinaDao.insert(
+                RotinaEntity(
+                    timestamp = agora,
+                    categoria = RotinaEntity.ALIMENTACAO,
+                    rotulo = diet.ifBlank { "Sem refeição registrada" }.take(60),
+                    metrica = dietScore,
+                    impactoTea = dietScore,
+                    impactoTdah = dietScore,
+                    riscoGatilho = (-dietScore).coerceIn(0f, 1f),
+                    detalhe = "diagnóstico diário",
+                    validada = true
+                )
+            )
+            rotinaDao.insert(
+                RotinaEntity(
+                    timestamp = agora,
+                    categoria = RotinaEntity.ATIVIDADE,
+                    rotulo = activities.ifBlank { "Sem atividades registradas" }.take(60),
+                    metrica = DietAudioAnalysisEngine.activityRisk(activities) * 100f,
+                    interacoesSociais = contarInteracoes(activities),
+                    riscoGatilho = DietAudioAnalysisEngine.activityRisk(activities),
+                    detalhe = "diagnóstico diário",
+                    validada = true
+                )
+            )
+
             _diagnosticResult.value = prob
+        }
+    }
+
+    private fun contarInteracoes(texto: String): Int {
+        val t = texto.lowercase()
+        return listOf(
+            "reunião", "reuniao", "festa", "multidão", "multidao", "trabalho",
+            "escola", "visita", "amigo", "social", "conversa", "grupo"
+        ).count { t.contains(it) }
+    }
+
+    /** Crise detectada pelos sensores vira registro de rotina (validado até "Falso Alarme"). */
+    private fun registrarCrise(e: CrisisEvent) {
+        viewModelScope.launch {
+            ultimaCriseRotinaId = rotinaDao.insert(
+                RotinaEntity(
+                    timestamp = e.timestamp,
+                    categoria = RotinaEntity.CRISE,
+                    rotulo = e.crisisType ?: "Quase-crise",
+                    metrica = e.decibels,
+                    riscoGatilho = (e.motionPeak / 3f).coerceIn(0f, 1f),
+                    detalhe = "%.1fg · %.0f dB · %s".format(
+                        e.motionPeak, e.decibels, e.foregroundPackage
+                    ),
+                    validada = true
+                )
+            )
         }
     }
 
@@ -179,6 +303,7 @@ class MainViewModel(context: Context) : ViewModel() {
             SensorTelemetryService.latest.collect { e ->
                 if (e != null) {
                     SensorTelemetryService.latest.value = null
+                    registrarCrise(e)
                     triggerAlert()
                 }
             }

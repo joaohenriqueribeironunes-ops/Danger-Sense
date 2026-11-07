@@ -8,14 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [CrisisEvent::class, NeuroHabitsLog::class, IngestaoEntity::class],
-    version = 3,
+    entities = [CrisisEvent::class, NeuroHabitsLog::class, IngestaoEntity::class, RotinaEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class CrisisDatabase : RoomDatabase() {
     abstract fun crisisDao(): CrisisDao
     abstract fun neuroHabitsDao(): NeuroHabitsDao
     abstract fun ingestaoDao(): IngestaoDao
+    abstract fun rotinaDao(): RotinaDao
 
     companion object {
         @Volatile private var instance: CrisisDatabase? = null
@@ -37,6 +38,26 @@ abstract class CrisisDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS rotina (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "timestamp INTEGER NOT NULL, " +
+                        "categoria TEXT NOT NULL, " +
+                        "rotulo TEXT NOT NULL, " +
+                        "metrica REAL NOT NULL, " +
+                        "duracaoMinutos INTEGER NOT NULL, " +
+                        "interacoesSociais INTEGER NOT NULL, " +
+                        "impactoTea REAL NOT NULL, " +
+                        "impactoTdah REAL NOT NULL, " +
+                        "riscoGatilho REAL NOT NULL, " +
+                        "detalhe TEXT NOT NULL, " +
+                        "validada INTEGER NOT NULL)"
+                )
+            }
+        }
+
         fun get(context: Context): CrisisDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -44,7 +65,7 @@ abstract class CrisisDatabase : RoomDatabase() {
                     CrisisDatabase::class.java,
                     "sense_calm.db"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }

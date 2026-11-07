@@ -52,8 +52,10 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.dangersense.app.data.CrisisEvent
 import com.dangersense.app.domain.MainViewModel
+import com.dangersense.app.ui.hyper.DiagnosticoTriggerCard
 import com.dangersense.app.ui.hyper.HyperCapsule
 import com.dangersense.app.ui.hyper.HyperMindHub
+import com.dangersense.app.ui.hyper.HyperOSDiagnosticOverlay
 import com.dangersense.app.ui.hyper.IngestionPanel
 import com.dangersense.app.ui.theme.OneUI
 import java.text.SimpleDateFormat
@@ -77,6 +79,7 @@ fun MainScreen(vm: MainViewModel) {
     val bpm by vm.bpm.collectAsStateWithLifecycle()
     val screenMinutes by vm.screenMinutes.collectAsStateWithLifecycle()
     val local by vm.localPrediction.collectAsStateWithLifecycle()
+    val diagnostico by vm.diagnostico.collectAsStateWithLifecycle()
 
     var draft by remember { mutableStateOf("") }
 
@@ -150,6 +153,7 @@ fun MainScreen(vm: MainViewModel) {
                         detected = prediction?.detected == true
                     )
                 }
+                item { DiagnosticoTriggerCard(vm) }
                 item { DiagnosticSection(vm) }
                 item { IngestionPanel(vm) }
                 if (events.isNotEmpty()) {
@@ -209,6 +213,12 @@ fun MainScreen(vm: MainViewModel) {
                 }
             }
         }
+
+        HyperOSDiagnosticOverlay(
+            diagnostico = diagnostico,
+            onDismiss = { vm.fecharDiagnostico() },
+            modifier = Modifier.fillMaxSize().zIndex(20f)
+        )
     }
 }
 
