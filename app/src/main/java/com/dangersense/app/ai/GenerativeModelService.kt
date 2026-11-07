@@ -58,14 +58,17 @@ class GenerativeModelService {
 
     /** Consolida 7-14 dias de rotina, injeta no prompt do Gemini e lê o JSON diagnóstico. */
     suspend fun gerarDiagnosticoAdaptativo(
-        historicoRotina: List<RotinaEntity>
+        historicoRotina: List<RotinaEntity>,
+        ingestoes: List<IngestaoEntity> = emptyList()
     ): Result<DiagnosticoAdaptativo> = withContext(Dispatchers.IO) {
         runCatching {
             check(apiKey.isNotBlank()) { "GEMINI_API_KEY ausente" }
             check(historicoRotina.isNotEmpty()) { "Histórico de rotina vazio" }
 
             val dias = diasCobertos(historicoRotina)
-            val text = generate(promptDiagnostico(resumoEstruturado(historicoRotina), dias))
+            val text = generate(
+                promptDiagnostico(resumoEstruturado(historicoRotina), dias, ingestoes)
+            )
 
             val start = text.indexOf('{')
             val end = text.lastIndexOf('}')
@@ -128,15 +131,37 @@ class GenerativeModelService {
         )
     }
 
-    private fun promptDiagnostico(resumo: String, dias: Int) = """
+    private fun promptDiagnostico(resumo: String, dias: Int, ingestoes: List<IngestaoEntity>) = """
         Você é um analista de padrões de neurodivergência (TEA/TDAH). Analise o histórico multivariado de rotina do usuário (comida, sono, atividades e crises passadas). Identifique correlações sutis de causa e efeito que são específicas para ESTE usuário (Ex: 'Sempre que o usuário dorme menos de 6h e consome glúten/cafeína, o risco de parálise por TDAH dobra nas 4h seguintes'). Gere um diagnóstico proativo, adaptável e personalizado. Retorne estritamente em JSON com os campos: 'insight_principal', 'correlacao_detectada', 'nivel_vulnerabilidade_atual' (0 a 100), e 'recomendacao_clinica'.
 
         HISTÓRICO DE ROTINA DOS ÚLTIMOS $dias DIAS (alimentação, sono, atividades e crises validadas):
         $resumo
+        ${blocoAlimentacao(ingestoes)}
 
         Saída SOMENTE JSON válido, sem markdown e sem comentários:
         {"insight_principal": "<PT-BR>", "correlacao_detectada": "<PT-BR>", "nivel_vulnerabilidade_atual": <0-100>, "recomendacao_clinica": "<PT-BR>"}
     """.trimIndent()
+
+    /** Base de conhecimento alimentar já pesquisada: mecanismo, gatilho, impacto e fontes. */
+    private fun blocoAlimentacao(ingestoes: List<IngestaoEntity>): String {
+        if (ingestoes.isEmpty()) return ""
+        return buildString {
+            appendLine()
+            appendLine("BASE CIENTÍFICA DE ALIMENTAÇÃO/INGESTÃO DESTE USUÁRIO:")
+            ingestoes.take(20).forEach { i ->
+                appendLine(
+                    "- ${i.nome} (${i.categoria}): mecanismo=${i.mecanismo_cientifico} | " +
+                        "gatilho=${(i.risco_gatilho * 100).toInt()}% | " +
+                        "impacto_TEA=${i.impacto_tea} | impacto_TDAH=${i.impacto_tdah} | " +
+                        "fontes=${i.fontes_cientificas}"
+                )
+            }
+            appendLine(
+                "Explique em 'correlacao_detectada' o que cada um desses alimentos pode " +
+                    "desencadear (sintomas, sobrecarga, janelas de risco) e cite as fontes."
+            )
+        }
+    }
 
     private fun diasCobertos(historico: List<RotinaEntity>): Int =
         historico.groupBy { it.timestamp / 86_400_000L }.size

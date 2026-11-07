@@ -23,7 +23,6 @@ import com.dangersense.app.ui.theme.OneUI
 
 @Composable
 fun HyperMindHub(
-    risk: Float,
     db: Float,
     bpm: Int,
     screenMinutes: Int,
@@ -36,7 +35,7 @@ fun HyperMindHub(
             .fillMaxWidth()
             .clip(HyperOS.SquircleLg)
             .background(HyperOS.Surface)
-            .border(1.dp, HyperOS.HyperBlue.copy(alpha = 0.25f), HyperOS.SquircleLg)
+            .border(1.dp, OneUI.GraphiteGreenLine.copy(alpha = 0.55f), HyperOS.SquircleLg)
             .padding(20.dp)
     ) {
         Row(
@@ -59,28 +58,21 @@ fun HyperMindHub(
 
         Spacer(Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RiskGauge(risk = risk)
+        DecibelMeter(db = db)
 
-            Column {
-                StatusCapsule("dB", if (db > 0f) "%.0f".format(db) else "—")
-                Spacer(Modifier.height(8.dp))
-                StatusCapsule(
-                    "bpm",
-                    if (bpm > 0) "$bpm" else "—",
-                    accent = HyperOS.VitalGreen
-                )
-                Spacer(Modifier.height(8.dp))
-                StatusCapsule(
-                    "tela",
-                    "$screenMinutes min",
-                    accent = HyperOS.AlertOrange
-                )
-            }
+        Spacer(Modifier.height(16.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StatusCapsule(
+                "bpm",
+                if (bpm > 0) "$bpm" else "—",
+                accent = HyperOS.VitalGreen
+            )
+            StatusCapsule(
+                "tela",
+                "$screenMinutes min",
+                accent = HyperOS.AlertOrange
+            )
         }
 
         if (localAction.isNotBlank()) {
@@ -88,11 +80,11 @@ fun HyperMindHub(
             Text(
                 "Ação preventiva: $localAction",
                 fontSize = 13.sp,
-                color = HyperOS.HyperBlue,
+                color = OneUI.Aurora,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(HyperOS.HyperBlue.copy(alpha = 0.10f))
+                    .background(OneUI.GraphiteGreen)
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             )
         }

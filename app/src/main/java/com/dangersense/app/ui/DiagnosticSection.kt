@@ -92,8 +92,8 @@ fun DiagnosticSection(vm: MainViewModel) {
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(24.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = OneUI.Aurora,
-                    contentColor = OneUI.GraphiteDeep
+                    containerColor = OneUI.PureBlack,
+                    contentColor = OneUI.TextPrimary
                 )
             ) {
                 Text("Calcular chance de crise hoje", fontWeight = FontWeight.SemiBold)

@@ -82,11 +82,11 @@ fun IngestionPanel(vm: MainViewModel) {
                     c,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected) HyperOS.Graphite else OneUI.TextPrimary,
+                    color = if (selected) OneUI.Aurora else OneUI.TextPrimary,
                     modifier = Modifier
                         .clip(HyperOS.Capsule)
                         .background(
-                            if (selected) HyperOS.HyperBlue else HyperOS.Elevated
+                            if (selected) HyperOS.PureBlack else HyperOS.Elevated
                         )
                         .clickable { categoria = c }
                         .padding(horizontal = 14.dp, vertical = 8.dp)
@@ -101,8 +101,8 @@ fun IngestionPanel(vm: MainViewModel) {
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = HyperOS.HyperBlue,
-                contentColor = HyperOS.TrueBlack
+                containerColor = HyperOS.PureBlack,
+                contentColor = OneUI.TextPrimary
             )
         ) {
             Text(

@@ -11,10 +11,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object OneUI {
-    val GraphiteDeep = Color(0xFF121815)
-    val Graphite = Color(0xFF1B2320)
-    val GraphiteSurface = Color(0xFF232C28)
-    val GraphiteElevated = Color(0xFF2C3733)
+    // Verde Graphite: fundo e superfícies estruturais.
+    val GraphiteDeep = Color(0xFF080D0B)
+    val Graphite = Color(0xFF0F1714)
+    val GraphiteSurface = Color(0xFF161F1B)
+    val GraphiteElevated = Color(0xFF1F2B26)
+    val GraphiteGreen = Color(0xFF1B2C26)
+    val GraphiteGreenLine = Color(0xFF2E463D)
+
+    // Contraste minimalista dos botões de ação.
+    val PureBlack = Color(0xFF000000)
+    val MatteBlack = Color(0xFF0A0B0A)
+
+    // Acentos (fora de botões de ação).
     val Aurora = Color(0xFF6EE7C8)
     val AuroraDim = Color(0xFF3DBFA0)
     val AuroraSoft = Color(0xFFA8F2DF)
@@ -26,7 +35,7 @@ object OneUI {
 
 private val Scheme = darkColorScheme(
     primary = OneUI.Aurora,
-    onPrimary = OneUI.GraphiteDeep,
+    onPrimary = OneUI.PureBlack,
     secondary = OneUI.AuroraDim,
     background = OneUI.Graphite,
     onBackground = OneUI.TextPrimary,

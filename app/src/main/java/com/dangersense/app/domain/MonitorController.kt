@@ -138,7 +138,8 @@ class MainViewModel(context: Context) : ViewModel() {
                 return@launch
             }
             _diagStatus.value = "analisando"
-            gemini.gerarDiagnosticoAdaptativo(historico)
+            val ingestoes = ingestaoDao.recentSince(desde)
+            gemini.gerarDiagnosticoAdaptativo(historico, ingestoes)
                 .onSuccess {
                     _diagnostico.value = it
                     _diagStatus.value = "ok"

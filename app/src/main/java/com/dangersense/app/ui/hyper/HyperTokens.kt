@@ -1,10 +1,10 @@
 package com.dangersense.app.ui.hyper
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,13 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dangersense.app.ui.theme.OneUI
@@ -39,16 +35,18 @@ import com.dangersense.app.ui.theme.OneUI
  */
 object HyperOS {
     val TrueBlack = Color(0xFF000000)
-    val Graphite = Color(0xFF0A0C10)
-    val Surface = Color(0xFF141821)
-    val Elevated = Color(0xFF1E2430)
+    val PureBlack = Color(0xFF000000)
+    val MatteBlack = Color(0xFF0A0B0A)
+    val Graphite = Color(0xFF0B100E)
+    val Surface = Color(0xFF131C18)
+    val Elevated = Color(0xFF1D2823)
     val HyperBlue = Color(0xFF4C8DFF)
     val HyperBlueDim = Color(0xFF2E6BE6)
     val VitalGreen = Color(0xFF34C759)
     val AlertOrange = Color(0xFFFF7A45)
     val AlertRed = Color(0xFFFF4D4F)
-    val TextPrimary = Color(0xFFF2F5FA)
-    val TextSecondary = Color(0xFF8E97A6)
+    val TextPrimary = Color(0xFFF2F6F4)
+    val TextSecondary = Color(0xFF90A69D)
 
     val SquircleLg: RoundedCornerShape = RoundedCornerShape(28.dp)
     val SquircleMd: RoundedCornerShape = RoundedCornerShape(24.dp)
@@ -110,40 +108,98 @@ fun StatusCapsule(
     }
 }
 
+/**
+ * Medidor de decibéis em tempo real: leitura grande do dB atual,
+ * faixa fina de nível e rótulo de status. Substitui o antigo gauge de risco.
+ */
 @Composable
-fun RiskGauge(risk: Float, size: Dp = 132.dp) {
-    val animated by animateFloatAsState(targetValue = risk.coerceIn(0f, 1f), label = "gauge")
-    val accent = when {
-        risk >= 0.75f -> HyperOS.AlertRed
-        risk >= 0.5f -> HyperOS.AlertOrange
-        else -> HyperOS.VitalGreen
+fun DecibelMeter(db: Float, modifier: Modifier = Modifier) {
+    val normalizado = ((db - 30f) / 90f).coerceIn(0f, 1f)
+    val animated by animateFloatAsState(targetValue = normalizado, label = "db")
+    val status = when {
+        db <= 0f -> "aguardando microfone"
+        db < 40f -> "silêncio"
+        db < 60f -> "ambiente calmo"
+        db < 75f -> "ruído moderado"
+        db < 85f -> "ruído alto"
+        else -> "ruído crítico"
     }
-    Box(contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.size(size)) {
-            val stroke = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round)
-            drawArc(
-                color = HyperOS.Elevated,
-                startAngle = 135f,
-                sweepAngle = 270f,
-                useCenter = false,
-                style = stroke
-            )
-            drawArc(
-                color = accent,
-                startAngle = 135f,
-                sweepAngle = 270f * animated,
-                useCenter = false,
-                style = stroke
+    val accent = when {
+        db < 40f -> HyperOS.VitalGreen
+        db < 75f -> HyperOS.HyperBlue
+        db < 85f -> HyperOS.AlertOrange
+        else -> HyperOS.AlertRed
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    if (db > 0f) "%.0f".format(db) else "—",
+                    fontSize = 46.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = OneUI.TextPrimary
+                )
+                Spacer(Modifier.size(4.dp))
+                Text(
+                    "dB",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = OneUI.TextSecondary,
+                    modifier = Modifier.padding(bottom = 9.dp)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(HyperOS.Capsule)
+                    .background(HyperOS.Surface)
+                    .border(1.dp, accent.copy(alpha = 0.45f), HyperOS.Capsule)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(status, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = accent)
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(HyperOS.Capsule)
+                .background(HyperOS.Elevated)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(animated)
+                    .height(4.dp)
+                    .clip(HyperOS.Capsule)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                HyperOS.VitalGreen,
+                                HyperOS.HyperBlue,
+                                HyperOS.AlertOrange,
+                                HyperOS.AlertRed
+                            )
+                        )
+                    )
             )
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "${(animated * 100).toInt()}%",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = accent
-            )
-            Text("risco", fontSize = 12.sp, color = OneUI.TextSecondary)
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            listOf("30", "60", "90", "120").forEach {
+                Text(it, fontSize = 10.sp, color = OneUI.TextSecondary.copy(alpha = 0.7f))
+            }
         }
     }
 }
@@ -187,11 +243,11 @@ private fun QuickAction(text: String, accent: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(HyperOS.Capsule)
-            .background(accent.copy(alpha = 0.16f))
-            .border(1.dp, accent.copy(alpha = 0.5f), HyperOS.Capsule)
+            .background(HyperOS.PureBlack)
+            .border(1.dp, accent.copy(alpha = 0.55f), HyperOS.Capsule)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
-        Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = accent)
+        Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = OneUI.TextPrimary)
     }
 }

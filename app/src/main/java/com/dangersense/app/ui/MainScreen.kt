@@ -1,7 +1,6 @@
 package com.dangersense.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -19,7 +18,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -69,7 +67,6 @@ fun MainScreen(vm: MainViewModel) {
     val dbPeak by vm.dbPeak.collectAsStateWithLifecycle()
     val dbAmbient by vm.dbAmbient.collectAsStateWithLifecycle()
     val sampleRate by vm.sampleRate.collectAsStateWithLifecycle()
-    val prediction by vm.prediction.collectAsStateWithLifecycle()
     val events by vm.events.collectAsStateWithLifecycle(initialValue = emptyList())
     val foreground by vm.tracker.foreground.collectAsStateWithLifecycle()
     val enabled by vm.controller.enabled.collectAsStateWithLifecycle()
@@ -80,6 +77,7 @@ fun MainScreen(vm: MainViewModel) {
     val screenMinutes by vm.screenMinutes.collectAsStateWithLifecycle()
     val local by vm.localPrediction.collectAsStateWithLifecycle()
     val diagnostico by vm.diagnostico.collectAsStateWithLifecycle()
+    val ingestoes by vm.ingestoes.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var draft by remember { mutableStateOf("") }
 
@@ -124,7 +122,6 @@ fun MainScreen(vm: MainViewModel) {
             ) {
                 item {
                     HyperMindHub(
-                        risk = prediction?.risk ?: local?.risco ?: 0f,
                         db = db,
                         bpm = bpm,
                         screenMinutes = screenMinutes,
@@ -144,14 +141,6 @@ fun MainScreen(vm: MainViewModel) {
                 }
                 if (messages.isNotEmpty()) {
                     item { MessagesCard(messages) }
-                }
-                item {
-                    PredictionCard(
-                        risk = prediction?.risk ?: 0f,
-                        minutes = prediction?.windowMinutes ?: 0,
-                        pkg = prediction?.topPackage ?: "",
-                        detected = prediction?.detected == true
-                    )
                 }
                 item { DiagnosticoTriggerCard(vm) }
                 item { DiagnosticSection(vm) }
@@ -204,8 +193,8 @@ fun MainScreen(vm: MainViewModel) {
                         onClick = { vm.restoreVision() },
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = OneUI.GraphiteElevated,
-                            contentColor = OneUI.Aurora
+                            containerColor = OneUI.PureBlack,
+                            contentColor = OneUI.TextPrimary
                         )
                     ) {
                         Text("Restaurar visão")
@@ -216,6 +205,7 @@ fun MainScreen(vm: MainViewModel) {
 
         HyperOSDiagnosticOverlay(
             diagnostico = diagnostico,
+            ingestoes = ingestoes,
             onDismiss = { vm.fecharDiagnostico() },
             modifier = Modifier.fillMaxSize().zIndex(20f)
         )
@@ -357,60 +347,6 @@ private fun MessagesCard(messages: List<String>) {
 }
 
 @Composable
-private fun PredictionCard(risk: Float, minutes: Int, pkg: String, detected: Boolean) {
-    val animated by animateFloatAsState(targetValue = risk.coerceIn(0f, 1f), label = "risk")
-    val accent = if (detected || risk >= 0.7f) OneUI.Alert else OneUI.Aurora
-
-    Card(
-        shape = RoundedCornerShape(OneUI.RadiusXl.dp),
-        colors = CardDefaults.cardColors(containerColor = OneUI.GraphiteSurface)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(accent)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text("Previsão da IA local", style = MaterialTheme.typography.titleMedium,
-                    color = OneUI.TextSecondary)
-            }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                if (detected) "Crise em curso" else "Risco de crise em ~$minutes min",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = accent
-            )
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(OneUI.GraphiteElevated)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(animated)
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(accent)
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Probabilidade ${(risk * 100).toInt()}%" + if (pkg.isNotBlank()) " · $pkg" else "",
-                style = MaterialTheme.typography.bodyMedium,
-                color = OneUI.TextSecondary
-            )
-        }
-    }
-}
-
-@Composable
 private fun EventRow(e: CrisisEvent) {
     val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     Card(
@@ -484,11 +420,11 @@ private fun MessageBar(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(CircleShape)
-                    .background(OneUI.Aurora)
+                    .background(OneUI.PureBlack)
                     .clickable(onClick = onSend),
                 contentAlignment = Alignment.Center
             ) {
-                Text("➤", fontSize = 18.sp, color = OneUI.GraphiteDeep, fontWeight = FontWeight.Bold)
+                Text("➤", fontSize = 18.sp, color = OneUI.TextPrimary, fontWeight = FontWeight.Bold)
             }
         }
     }
