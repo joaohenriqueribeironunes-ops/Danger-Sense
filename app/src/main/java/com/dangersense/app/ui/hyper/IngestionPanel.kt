@@ -1,5 +1,7 @@
 package com.dangersense.app.ui.hyper
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,8 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,17 +50,19 @@ fun IngestionPanel(vm: MainViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(HyperOS.SquircleLg)
-            .background(HyperOS.Surface)
+            .background(OneUI.GraphiteSurface)
+            .border(1.dp, OneUI.GraphiteGreenLine.copy(alpha = 0.35f), HyperOS.SquircleLg)
             .padding(20.dp)
+            .animateContentSize(tween(350))
     ) {
         Text(
-            "Análise Científica · Gemini",
+            "Diagnóstico alimentar",
             fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = OneUI.TextPrimary
         )
         Text(
-            "PubMed/Nature sobre TEA e TDAH",
+            "Análise completa com Gemini",
             fontSize = 12.sp,
             color = OneUI.TextSecondary
         )
@@ -70,8 +72,9 @@ fun IngestionPanel(vm: MainViewModel) {
             value = nome,
             onValueChange = { nome = it },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Ex.: ômega-3, ritalina, leite", color = OneUI.TextSecondary) },
-            colors = hyperFieldColors()
+            placeholder = { Text("Alimento, medicamento ou suplemento", color = OneUI.TextSecondary) },
+            shape = RoundedCornerShape(18.dp),
+            colors = fieldColors()
         )
 
         Spacer(Modifier.height(10.dp))
@@ -82,12 +85,10 @@ fun IngestionPanel(vm: MainViewModel) {
                     c,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected) OneUI.Aurora else OneUI.TextPrimary,
+                    color = if (selected) OneUI.GraphiteDeep else OneUI.TextPrimary,
                     modifier = Modifier
                         .clip(HyperOS.Capsule)
-                        .background(
-                            if (selected) HyperOS.PureBlack else HyperOS.Elevated
-                        )
+                        .background(if (selected) OneUI.Mustard else OneUI.GraphiteElevated)
                         .clickable { categoria = c }
                         .padding(horizontal = 14.dp, vertical = 8.dp)
                 )
@@ -96,29 +97,43 @@ fun IngestionPanel(vm: MainViewModel) {
 
         Spacer(Modifier.height(12.dp))
         Button(
-            onClick = { if (nome.isNotBlank()) vm.analisarIngestao(nome.trim(), categoria) },
+            onClick = {
+                if (nome.isNotBlank()) {
+                    vm.analisarIngestao(nome.trim(), categoria)
+                    nome = ""
+                }
+            },
             enabled = nome.isNotBlank() && status != "analisando",
             modifier = Modifier.fillMaxWidth().height(50.dp),
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = HyperOS.PureBlack,
-                contentColor = OneUI.TextPrimary
+                containerColor = OneUI.PureBlack,
+                contentColor = OneUI.TextPrimary,
+                disabledContainerColor = OneUI.PureBlack.copy(alpha = 0.45f),
+                disabledContentColor = OneUI.TextSecondary
             )
         ) {
             Text(
-                if (status == "analisando") "Pesquisando artigos…" else "Analisar com Gemini",
+                if (status == "analisando") "Analisando…" else "Analisar",
                 fontWeight = FontWeight.SemiBold
             )
         }
 
-        status.takeIf { it != "ok" && it.isNotBlank() }?.let {
+        status.takeIf { it.isNotBlank() && it != "ok" && it != "analisando" }?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, fontSize = 12.sp, color = HyperOS.AlertOrange)
+            Text(it, fontSize = 12.sp, color = OneUI.MustardLight)
         }
 
         if (history.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            history.take(6).forEach { item -> IngestionRow(item) }
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "Todos os alimentos e efeitos",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = OneUI.MustardLight
+            )
+            Spacer(Modifier.height(8.dp))
+            history.forEach { item -> IngestionRow(item) }
         }
     }
 }
@@ -126,16 +141,17 @@ fun IngestionPanel(vm: MainViewModel) {
 @Composable
 private fun IngestionRow(item: IngestaoEntity) {
     val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
-    val teaColor = if (item.impacto_tea >= 0) HyperOS.VitalGreen else HyperOS.AlertOrange
-    val tdahColor = if (item.impacto_tdah >= 0) HyperOS.VitalGreen else HyperOS.AlertOrange
+    val gatilho = (item.risco_gatilho * 100).toInt()
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(HyperOS.Elevated)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(OneUI.GraphiteElevated.copy(alpha = 0.65f))
+            .border(1.dp, OneUI.GraphiteGreenLine.copy(alpha = 0.25f), RoundedCornerShape(18.dp))
+            .padding(14.dp)
+            .animateContentSize(tween(300))
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -145,48 +161,49 @@ private fun IngestionRow(item: IngestaoEntity) {
                 item.nome,
                 fontWeight = FontWeight.SemiBold,
                 color = OneUI.TextPrimary,
-                fontSize = 15.sp
+                fontSize = 16.sp,
+                modifier = Modifier.weight(1f)
             )
-            Text(
-                fmt.format(Date(item.timestamp)),
-                fontSize = 11.sp,
-                color = OneUI.TextSecondary
-            )
+            Text(fmt.format(Date(item.timestamp)), fontSize = 11.sp, color = OneUI.TextSecondary)
         }
+        Spacer(Modifier.height(4.dp))
         Text(
-            "TEA ${fmtScore(item.impacto_tea)}  ·  TDAH ${fmtScore(item.impacto_tdah)}  ·  " +
-                    "gatilho ${(item.risco_gatilho * 100).toInt()}%",
+            "${item.categoria} · TEA ${fmtScore(item.impacto_tea)} · TDAH ${fmtScore(item.impacto_tdah)} · gatilho $gatilho%",
             fontSize = 12.sp,
-            color = OneUI.TextSecondary
+            color = OneUI.MustardLight
         )
+        Spacer(Modifier.height(8.dp))
         Text(
             item.mecanismo_cientifico,
-            fontSize = 12.sp,
-            color = teaColor.copy(alpha = 0.9f),
-            maxLines = 2
+            fontSize = 13.sp,
+            color = OneUI.TextPrimary,
+            lineHeight = 19.sp
         )
-        Text(
-            "Fontes: ${item.fontes_cientificas}",
-            fontSize = 10.sp,
-            color = tdahColor.copy(alpha = 0.6f),
-            maxLines = 1
-        )
+        if (item.fontes_cientificas.isNotBlank() && item.fontes_cientificas != "[]") {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Fontes: ${item.fontes_cientificas}",
+                fontSize = 11.sp,
+                color = OneUI.TextSecondary,
+                lineHeight = 16.sp
+            )
+        }
     }
 }
 
 private fun fmtScore(v: Float): String = when {
-    v > 0.3f -> "+%.1f".format(v)
-    v < -0.3f -> "%.1f".format(v)
+    v > 0.05f -> "+%.1f".format(v)
+    v < -0.05f -> "%.1f".format(v)
     else -> "0.0"
 }
 
 @Composable
-private fun hyperFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = HyperOS.HyperBlue,
-    unfocusedBorderColor = HyperOS.Elevated,
-    focusedContainerColor = HyperOS.Graphite,
-    unfocusedContainerColor = HyperOS.Graphite,
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = OneUI.Mustard,
+    unfocusedBorderColor = OneUI.GraphiteGreenLine.copy(alpha = 0.4f),
+    focusedContainerColor = OneUI.GraphiteDeep,
+    unfocusedContainerColor = OneUI.GraphiteDeep,
     focusedTextColor = OneUI.TextPrimary,
     unfocusedTextColor = OneUI.TextPrimary,
-    cursorColor = HyperOS.HyperBlue
+    cursorColor = OneUI.Mustard
 )

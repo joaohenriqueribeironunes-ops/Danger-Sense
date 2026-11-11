@@ -127,26 +127,30 @@ class MainViewModel(context: Context) : ViewModel() {
         }
     }
 
-    /** Busca 14 dias no Room, injeta no prompt do Gemini e abre o overlay. */
+    private var diagDay: String = ""
+
+    /** Busca 14 dias no Room, injeta no prompt do Gemini e abre o overlay. Reseta a cada dia. */
     fun gerarDiagnostico() {
         viewModelScope.launch {
+            val hoje = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+            if (diagDay != hoje) {
+                diagDay = hoje
+                _diagnostico.value = null
+            }
+
             val desde = System.currentTimeMillis() - 14L * 86_400_000L
             val historico = rotinaDao.desde(desde)
-            if (historico.size < 3) {
-                _diagStatus.value =
-                    "Histórico insuficiente (${historico.size} registros). Responda o diagnóstico diário por alguns dias."
-                return@launch
-            }
             _diagStatus.value = "analisando"
             val ingestoes = ingestaoDao.recentSince(desde)
-            gemini.gerarDiagnosticoAdaptativo(historico, ingestoes)
+            val base = if (historico.isNotEmpty()) historico else rotinaDao.recenteOnce(30)
+            gemini.gerarDiagnosticoAdaptativo(base, ingestoes)
                 .onSuccess {
                     _diagnostico.value = it
                     _diagStatus.value = "ok"
                 }
                 .onFailure { e ->
-                    _diagnostico.value = gemini.diagnosticoLocal(historico)
-                    _diagStatus.value = "offline · ${e.message?.take(60)}"
+                    _diagnostico.value = null
+                    _diagStatus.value = "Falha (Gemini): ${e.message?.take(80) ?: "erro"}"
                 }
         }
     }

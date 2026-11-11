@@ -34,22 +34,22 @@ import com.dangersense.app.ui.theme.OneUI
  * Azul Hyper (foco), Verde Vitalidade (positivo), Laranja/Vermelho (risco).
  */
 object HyperOS {
-    val TrueBlack = Color(0xFF000000)
-    val PureBlack = Color(0xFF000000)
-    val MatteBlack = Color(0xFF0A0B0A)
-    val Graphite = Color(0xFF0B100E)
-    val Surface = Color(0xFF131C18)
-    val Elevated = Color(0xFF1D2823)
-    val HyperBlue = Color(0xFF4C8DFF)
-    val HyperBlueDim = Color(0xFF2E6BE6)
-    val VitalGreen = Color(0xFF34C759)
-    val AlertOrange = Color(0xFFFF7A45)
-    val AlertRed = Color(0xFFFF4D4F)
-    val TextPrimary = Color(0xFFF2F6F4)
-    val TextSecondary = Color(0xFF90A69D)
+    val TrueBlack = Color(0xFF1F1906)
+    val PureBlack = Color(0xFF1F1906)
+    val MatteBlack = Color(0xFF2A2108)
+    val Graphite = Color(0xFF2F2508)
+    val Surface = Color(0xFF46380D)
+    val Elevated = Color(0xFF5A4812)
+    val HyperBlue = Color(0xFFD4A017)
+    val HyperBlueDim = Color(0xFFB38600)
+    val VitalGreen = Color(0xFFF2C94C)
+    val AlertOrange = Color(0xFFFFC107)
+    val AlertRed = Color(0xFFD97706)
+    val TextPrimary = Color(0xFFFFF6DC)
+    val TextSecondary = Color(0xFFE6D2A3)
 
     val SquircleLg: RoundedCornerShape = RoundedCornerShape(28.dp)
-    val SquircleMd: RoundedCornerShape = RoundedCornerShape(24.dp)
+    val SquircleMd: RoundedCornerShape = RoundedCornerShape(22.dp)
     val Capsule: RoundedCornerShape = RoundedCornerShape(50)
 }
 
@@ -125,9 +125,9 @@ fun DecibelMeter(db: Float, modifier: Modifier = Modifier) {
         else -> "ruído crítico"
     }
     val accent = when {
-        db < 40f -> HyperOS.VitalGreen
-        db < 75f -> HyperOS.HyperBlue
-        db < 85f -> HyperOS.AlertOrange
+        db < 60f -> OneUI.MustardLight
+        db < 75f -> OneUI.Mustard
+        db < 85f -> OneUI.Aurora
         else -> HyperOS.AlertRed
     }
 
@@ -181,9 +181,9 @@ fun DecibelMeter(db: Float, modifier: Modifier = Modifier) {
                     .background(
                         Brush.horizontalGradient(
                             listOf(
-                                HyperOS.VitalGreen,
-                                HyperOS.HyperBlue,
-                                HyperOS.AlertOrange,
+                                OneUI.MustardLight,
+                                OneUI.Mustard,
+                                OneUI.Aurora,
                                 HyperOS.AlertRed
                             )
                         )

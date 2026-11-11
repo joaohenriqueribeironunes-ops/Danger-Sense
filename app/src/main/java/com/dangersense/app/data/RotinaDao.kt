@@ -16,6 +16,9 @@ interface RotinaDao {
     @Query("SELECT * FROM rotina ORDER BY timestamp DESC LIMIT 80")
     fun recente(): Flow<List<RotinaEntity>>
 
+    @Query("SELECT * FROM rotina ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun recenteOnce(limit: Int): List<RotinaEntity>
+
     @Query("UPDATE rotina SET validada = 0 WHERE id = :id")
     suspend fun invalidar(id: Long)
 

@@ -24,10 +24,6 @@ import com.dangersense.app.ui.theme.OneUI
 @Composable
 fun HyperMindHub(
     db: Float,
-    bpm: Int,
-    screenMinutes: Int,
-    localSource: String,
-    localAction: String,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -35,58 +31,16 @@ fun HyperMindHub(
             .fillMaxWidth()
             .clip(HyperOS.SquircleLg)
             .background(HyperOS.Surface)
-            .border(1.dp, OneUI.GraphiteGreenLine.copy(alpha = 0.55f), HyperOS.SquircleLg)
-            .padding(20.dp)
+            .border(1.dp, OneUI.GraphiteGreenLine.copy(alpha = 0.45f), HyperOS.SquircleLg)
+            .padding(22.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "HyperMind",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = OneUI.TextPrimary
-            )
-            Text(
-                localSource,
-                fontSize = 12.sp,
-                color = OneUI.TextSecondary
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-
+        Text(
+            "Microfone",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = OneUI.TextSecondary
+        )
+        Spacer(Modifier.height(8.dp))
         DecibelMeter(db = db)
-
-        Spacer(Modifier.height(16.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusCapsule(
-                "bpm",
-                if (bpm > 0) "$bpm" else "—",
-                accent = HyperOS.VitalGreen
-            )
-            StatusCapsule(
-                "tela",
-                "$screenMinutes min",
-                accent = HyperOS.AlertOrange
-            )
-        }
-
-        if (localAction.isNotBlank()) {
-            Spacer(Modifier.height(16.dp))
-            Text(
-                "Ação preventiva: $localAction",
-                fontSize = 13.sp,
-                color = OneUI.Aurora,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(OneUI.GraphiteGreen)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
-            )
-        }
     }
 }

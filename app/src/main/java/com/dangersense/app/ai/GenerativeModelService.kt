@@ -223,20 +223,24 @@ class GenerativeModelService {
 
     private fun buildPrompt(nome: String, categoria: String) = """
         Você é um pesquisador biomédico sênior especializado em TEA (autismo) e TDAH.
-        Analise a substância "$nome" (categoria: $categoria).
-        Pesquise em fontes confiáveis (PubMed, Nature, Elsevier, Frontiers, Cochrane)
-        os efeitos sobre TEA e TDAH: benefícios, riscos, mecanismos neurobiológicos
-        (neuroinflamação, barreira intestinal, dopamina/serotonina, glutamato),
-        interações e gatilhos de sobrecarga sensorial.
+        Faça um DIAGNÓSTICO ALIMENTAR COMPLETO e detalhado da substância "$nome" (categoria: $categoria), com base em evidências de PubMed, Nature, Elsevier, Frontiers e Cochrane.
+        Inclua tudo, sem omitir partes:
+        - benefícios potenciais para TEA e TDAH
+        - riscos, efeitos adversos e contraindicações
+        - mecanismos neurobiológicos (neuroinflamação, eixo intestino-cérebro, dopamina, serotonina, glutamato/GABA, histamina, cortisol etc.)
+        - interações com medicamentos/suplementos comuns
+        - gatilhos de sobrecarga sensorial, ansiedade, hiperatividade ou letargia
+        - o que pode desencadear e em quais janelas de tempo
+        - recomendações práticas (dose/contexto/evitar ou preferir), quando aplicável
         Retorne SOMENTE um JSON válido, sem markdown, exatamente neste formato:
         {
           "nome": "$nome",
           "categoria": "$categoria",
           "impacto_tea": <float -1.0 (muito negativo) a 1.0 (muito positivo)>,
           "impacto_tdah": <float -1.0 a 1.0>,
-          "mecanismo_cientifico": "<resumo do mecanismo em uma frase em português>",
+          "mecanismo_cientifico": "<texto completo em português, em parágrafos, cobrindo TODOS os tópicos acima; não resuma>",
           "risco_gatilho": <float 0.0 a 1.0>,
-          "fontes_cientificas": ["<PMID ou URL>", "<PMID ou URL>"]
+          "fontes_cientificas": ["<PMID/DOI/URL>", "... liste todas as fontes relevantes ..."]
         }
     """.trimIndent()
 

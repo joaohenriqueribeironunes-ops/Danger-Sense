@@ -11,26 +11,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object OneUI {
-    // Verde Graphite: fundo e superfícies estruturais.
-    val GraphiteDeep = Color(0xFF080D0B)
-    val Graphite = Color(0xFF0F1714)
-    val GraphiteSurface = Color(0xFF161F1B)
-    val GraphiteElevated = Color(0xFF1F2B26)
-    val GraphiteGreen = Color(0xFF1B2C26)
-    val GraphiteGreenLine = Color(0xFF2E463D)
+    // Amarelo mostarda: paleta total, minimalista (inspiração iOS 26).
+    val GraphiteDeep = Color(0xFF2A2108)
+    val Graphite = Color(0xFF3A2E0A)
+    val GraphiteSurface = Color(0xFF4A3B0E)
+    val GraphiteElevated = Color(0xFF5C4A13)
+    val GraphiteGreen = Color(0xFF4F4010)
+    val GraphiteGreenLine = Color(0xFFB9921A)
 
-    // Contraste minimalista dos botões de ação.
-    val PureBlack = Color(0xFF000000)
-    val MatteBlack = Color(0xFF0A0B0A)
+    val PureBlack = Color(0xFF1F1906)
+    val MatteBlack = Color(0xFF2A2108)
 
-    // Acentos (fora de botões de ação).
-    val Aurora = Color(0xFF6EE7C8)
-    val AuroraDim = Color(0xFF3DBFA0)
-    val AuroraSoft = Color(0xFFA8F2DF)
-    val Alert = Color(0xFFFFD426)
-    val TextPrimary = Color(0xFFEAF4F0)
-    val TextSecondary = Color(0xFF9DB3AC)
-    val RadiusXl = 32
+    val Aurora = Color(0xFFE0B000)
+    val AuroraDim = Color(0xFFC79A00)
+    val AuroraSoft = Color(0xFFFFE08A)
+    val Mustard = Color(0xFFD4A017)
+    val MustardLight = Color(0xFFF2C94C)
+    val MustardDark = Color(0xFF8C6A0A)
+    val Alert = Color(0xFFFFC107)
+    val TextPrimary = Color(0xFFFFF6DC)
+    val TextSecondary = Color(0xFFE6D2A3)
+    val RadiusXl = 28
 }
 
 private val Scheme = darkColorScheme(

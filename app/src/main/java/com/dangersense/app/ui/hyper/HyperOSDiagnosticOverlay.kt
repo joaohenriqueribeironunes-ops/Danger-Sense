@@ -53,11 +53,10 @@ import com.dangersense.app.ui.theme.OneUI
 
 private const val BLUR_RADIUS = 30f
 
-/** Verde Graphite: cor estrutural e de texto do diagnóstico adaptativo. */
-private val VerdeGrafite = OneUI.GraphiteGreen
-private val VerdeGrafiteLinha = OneUI.GraphiteGreenLine
-private val VerdeGrafiteTexto = OneUI.AuroraSoft
-private val VerdeGrafiteRotulo = OneUI.AuroraDim
+private val CardBg = OneUI.GraphiteGreen
+private val CardLine = OneUI.GraphiteGreenLine
+private val CardTitle = OneUI.MustardLight
+private val CardLabel = OneUI.Mustard
 
 private enum class CategoriaInsight(
     val rotulo: String,
@@ -111,8 +110,8 @@ fun HyperOSDiagnosticOverlay(
     AnimatedVisibility(
         visible = d != null,
         modifier = modifier,
-        enter = fadeIn(springSpec) + scaleIn(initialScale = 0.92f, animationSpec = springSpec),
-        exit = fadeOut(springSpec) + scaleOut(targetScale = 0.9f, animationSpec = springSpec)
+        enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(450)),
+        exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(350))
     ) {
         if (d != null) {
             OverlayCard(d = d, ingestoes = ingestoes, onDismiss = onDismiss)
@@ -147,7 +146,7 @@ private fun OverlayCard(
                 Card(
                     shape = HyperOS.SquircleLg,
                     modifier = Modifier.fillMaxWidth(),
-                    border = BorderStroke(1.dp, VerdeGrafiteLinha),
+                    border = BorderStroke(1.dp, CardLine.copy(alpha = 0.5f)),
                     colors = CardDefaults.cardColors(
                         containerColor = OneUI.GraphiteSurface.copy(alpha = 0.94f)
                     )
@@ -175,7 +174,7 @@ private fun OverlayCard(
                     containerColor = HyperOS.PureBlack,
                     contentColor = OneUI.TextPrimary
                 ),
-                border = BorderStroke(1.dp, VerdeGrafiteLinha)
+                border = BorderStroke(1.dp, CardLine.copy(alpha = 0.4f))
             ) {
                 Text(text = "Entendido", style = MiSans.Subtitulo, fontSize = 15.sp)
             }
@@ -204,9 +203,9 @@ private fun AcrylicLayer(modifier: Modifier = Modifier) {
             .background(
                 Brush.linearGradient(
                     listOf(
-                        VerdeGrafite.copy(alpha = 0.55f),
-                        Color.White.copy(alpha = 0.10f),
-                        VerdeGrafite.copy(alpha = 0.35f)
+                        OneUI.MustardDark.copy(alpha = 0.35f),
+                        Color.White.copy(alpha = 0.08f),
+                        OneUI.Graphite.copy(alpha = 0.35f)
                     )
                 )
             )
@@ -233,7 +232,7 @@ private fun CardContent(
                 text = "Diagnóstico Adaptativo",
                 style = MiSans.Titulo,
                 fontSize = 20.sp,
-                color = VerdeGrafiteTexto,
+                color = CardTitle,
                 modifier = Modifier.weight(1f)
             )
             Text(
@@ -342,10 +341,10 @@ private fun BlocoDiagnostico(rotulo: String, texto: String, destaque: Boolean) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(if (destaque) VerdeGrafite else HyperOS.Graphite)
+            .background(if (destaque) CardBg else HyperOS.Graphite)
             .border(
                 1.dp,
-                VerdeGrafiteLinha.copy(alpha = if (destaque) 0.9f else 0.5f),
+                CardLine.copy(alpha = if (destaque) 0.7f else 0.35f),
                 RoundedCornerShape(18.dp)
             )
             .padding(14.dp)
@@ -354,14 +353,14 @@ private fun BlocoDiagnostico(rotulo: String, texto: String, destaque: Boolean) {
             text = rotulo,
             style = MiSans.Legenda,
             fontSize = 11.sp,
-            color = VerdeGrafiteRotulo
+            color = CardLabel
         )
         Spacer(Modifier.height(5.dp))
         Text(
             text = texto,
             style = if (destaque) MiSans.Subtitulo else MiSans.Corpo,
             fontSize = if (destaque) 15.sp else 13.sp,
-            color = if (destaque) VerdeGrafiteTexto else OneUI.TextPrimary,
+            color = if (destaque) OneUI.TextPrimary else OneUI.TextPrimary,
             lineHeight = 20.sp
         )
     }
@@ -371,14 +370,14 @@ private fun BlocoDiagnostico(rotulo: String, texto: String, destaque: Boolean) {
 @Composable
 private fun GatilhosAlimentares(ingestoes: List<IngestaoEntity>) {
     Text(
-        text = "O que a alimentação pode desencadear",
+        text = "Efeitos completos da alimentação",
         style = MiSans.Titulo,
         fontSize = 15.sp,
-        color = VerdeGrafiteTexto
+        color = CardTitle
     )
     Spacer(Modifier.height(10.dp))
 
-    ingestoes.take(4).forEach { item ->
+    ingestoes.forEach { item ->
         val gatilho = (item.risco_gatilho * 100).toInt()
         val corGatilho = when {
             gatilho >= 70 -> HyperOS.AlertRed
@@ -391,8 +390,8 @@ private fun GatilhosAlimentares(ingestoes: List<IngestaoEntity>) {
                 .fillMaxWidth()
                 .padding(bottom = 10.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(VerdeGrafite)
-                .border(1.dp, VerdeGrafiteLinha.copy(alpha = 0.7f), RoundedCornerShape(16.dp))
+                .background(CardBg)
+                .border(1.dp, CardLine.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Row(
@@ -474,7 +473,7 @@ private fun InsightChip(
             .background(HyperOS.Elevated)
             .border(
                 1.dp,
-                VerdeGrafiteLinha.copy(alpha = if (ativo) 0.9f else 0.3f),
+                CardLine.copy(alpha = if (ativo) 0.8f else 0.25f),
                 HyperOS.Capsule
             )
             .padding(horizontal = 7.dp, vertical = 7.dp),
@@ -541,7 +540,7 @@ private fun InsightIcon(categoria: CategoriaInsight, modifier: Modifier = Modifi
     }
 }
 
-/** Cartão que dispara a geração do diagnóstico adaptativo. */
+/** Cartão que dispara a geração do diagnóstico adaptativo (Gemini). */
 @Composable
 fun DiagnosticoTriggerCard(vm: MainViewModel) {
     val status by vm.diagStatus.collectAsStateWithLifecycle()
@@ -552,23 +551,23 @@ fun DiagnosticoTriggerCard(vm: MainViewModel) {
             .fillMaxWidth()
             .clip(HyperOS.SquircleLg)
             .background(OneUI.GraphiteSurface)
-            .border(1.dp, VerdeGrafiteLinha, HyperOS.SquircleLg)
+            .border(1.dp, CardLine.copy(alpha = 0.4f), HyperOS.SquircleLg)
             .padding(20.dp)
     ) {
         Text(
-            text = "Memória adaptável de rotina",
+            text = "Diagnóstico",
             style = MiSans.Titulo,
-            fontSize = 17.sp,
-            color = VerdeGrafiteTexto
+            fontSize = 18.sp,
+            color = OneUI.TextPrimary
         )
         Text(
-            text = "Sono, alimentação, atividades e crises · últimos 7-14 dias",
+            text = "Gemini · novo a cada dia",
             style = MiSans.Corpo,
             fontSize = 12.sp,
             color = OneUI.TextSecondary
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(14.dp))
 
         Button(
             onClick = { vm.gerarDiagnostico() },
@@ -578,25 +577,24 @@ fun DiagnosticoTriggerCard(vm: MainViewModel) {
                 .height(48.dp),
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = HyperOS.PureBlack,
+                containerColor = OneUI.PureBlack,
                 contentColor = OneUI.TextPrimary
-            ),
-            border = BorderStroke(1.dp, VerdeGrafiteLinha)
+            )
         ) {
             Text(
-                text = if (rolando) "Analisando padrões…" else "Gerar diagnóstico adaptativo",
+                text = if (rolando) "Analisando…" else "Gerar diagnóstico",
                 style = MiSans.Subtitulo,
                 fontSize = 15.sp
             )
         }
 
-        if (status.isNotBlank() && !rolando) {
+        if (status.isNotBlank() && !rolando && status != "ok") {
             Spacer(Modifier.height(8.dp))
             Text(
                 text = status,
                 style = MiSans.Legenda,
                 fontSize = 12.sp,
-                color = if (status == "ok") HyperOS.VitalGreen else HyperOS.AlertOrange
+                color = OneUI.MustardLight
             )
         }
     }
