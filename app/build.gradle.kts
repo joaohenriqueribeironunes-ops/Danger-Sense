@@ -13,8 +13,8 @@ android {
         applicationId = "com.dangersense.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 8
+        versionName = "1.6.1"
         buildConfigField(
             "String",
             "GEMINI_API_KEY",
